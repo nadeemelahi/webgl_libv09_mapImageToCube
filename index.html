@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>fullscreen canvas</title>
+<meta charset="utf-8">
+<meta name="author" content="Ned - Nadeem Elahi nadeem@webscripts.biz">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+
+* { margin: 0; padding: 0; }
+html, body { height: 100%; }
+div#plusNminusOne {  
+	height: 100%; width: 100%; 
+	position: relative; 
+}
+#cwrap, #cui { 
+	height: 100%; width: 100%;
+	position: absolute; 
+	top: 0; left: 0;
+	color: green; 
+}
+#cwrap { z-index: 25; }
+#cui { z-index: 75; }
+#tl, #tr, #bl, #br, #center { 
+	position: absolute; 
+} 
+#tl { top: 0; left: 0; }
+#tr { top: 0; right: 0; }
+#bl { bottom: 0; left: 0; }
+#br { bottom: 0; right: 0; }
+#center { 
+	z-index: 50;
+	top:50%;left:50%;
+	transform:translate(-50%,-50%);
+	-ms-transform:translate(-50%,-50%);
+}
+#scrolledPage { 
+	width: 100%; margin: 0; 
+	padding: 10px; 
+} 
+
+#cnv { 
+	width: 100%; height: 100%; 
+	display: block; margin: auto;
+}
+
+</style>
+</head>
+<body>
+	
+<div id="plusNminusOne">
+	<div id="cwrap">
+		<canvas id="cnv" width="400" height="400"></canvas>
+	</div>
+
+	<div id="cui">
+		<div id="tl">top left</div>
+		<div id="tr">top right</div>
+		<div id="bl">bottom left</div>
+		<div id="br">bottom right</div>
+		<div id="center">center</div>
+	</div>
+</div>
+
+<div id="scrolledPage">
+	scrolledPage
+</div>
+
+<script id="vs0_fsQuad" type="x-shader/x-fragment">
+// background image
+attribute vec2 fsQuad; 
+attribute vec2 fsTexQuad;
+varying vec2 vfsTexQuad;
+void main(void){
+	gl_Position =  vec4(fsQuad, 0.999 , 1.0);
+	vfsTexQuad = fsTexQuad;
+}
+</script><script id="fs0_vfsTexQuad" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D imgRipple; 
+varying vec2 vfsTexQuad;
+void main(void){
+	gl_FragColor = texture2D( imgRipple, vfsTexQuad );
+}
+</script> 
+
+
+
+<script id="vs1_fsTextureQuad" type="x-shader/x-fragment">
+// data texture
+attribute vec2 halfFSquad; 
+attribute vec2 dataTextureQuad;
+varying vec2 vdataTextureQuad;
+void main(void){
+	gl_Position =  vec4(halfFSquad, 0.998 , 1.0);
+	vdataTextureQuad = dataTextureQuad;
+}
+</script><script id="fs1_vfsDataTexQuad" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D tex; // automatically uses the image data loaded 
+varying vec2 vdataTextureQuad;
+void main(void){
+	gl_FragColor = texture2D( tex, vdataTextureQuad );
+}
+</script> 
+
+
+
+<script id="vs2_verts_colours_tsr_p" type="x-shader/x-fragment">
+attribute vec3 vert; 
+attribute vec3 colour;
+varying vec3 vcolour;
+uniform float xAngle;
+uniform float yAngle;
+uniform float zAngle;
+uniform float xScale;
+uniform float yScale;
+uniform float zScale;
+uniform float xLoc;
+uniform float yLoc;
+uniform float zLoc;
+uniform float psvFactor;
+void main(void){
+	float zAngleRadians = radians(zAngle);
+	float cz = cos(zAngleRadians); 
+	float sz = sin(zAngleRadians); 
+
+	mat4 rotateZ = mat4( cz  ,  sz , 0.0 , 0.0 ,
+			    -sz  ,  cz , 0.0 , 0.0 ,
+			     0.0 , 0.0 , 1.0 , 0.0 ,
+			     0.0 , 0.0 , 0.0 , 1.0     );
+
+	float yAngleRadians = radians(yAngle);
+	float cy = cos(yAngleRadians); 
+	float sy = sin(yAngleRadians); 
+	mat4 rotateY = mat4( cy  , 0.0 ,-sy  , 0.0 ,
+			     0.0 , 1.0 , 0.0 , 0.0 ,
+			     sy  , 0.0 , cy  , 0.0 ,
+			     0.0 , 0.0 , 0.0 , 1.0     );
+
+	float xAngleRadians = radians(xAngle);
+	float cx = cos(xAngleRadians); 
+	float sx = sin(xAngleRadians); 
+	mat4 rotateX = mat4( 1.0 , 0.0 , 0.0 , 0.0 ,
+			     0.0 , cx  , sx  , 0.0 ,
+			     0.0 ,-sx  , cx  , 0.0 ,
+			     0.0 , 0.0 , 0.0 , 1.0     );
+
+	mat4 rotate = rotateX * rotateY * rotateZ;
+
+	mat4 scale = mat4( xScale , 0.0    , 0.0    , 0.0 ,
+			    0.0   , yScale , 0.0    , 0.0 ,
+			    0.0   , 0.0    , zScale , 0.0 ,
+			    0.0   , 0.0    , 0.0    , 1.0 	);
+
+	mat4 translation = mat4(  1.0  , 0.0  , 0.0  , 0.0 ,
+			  	  0.0  , 1.0  , 0.0  , 0.0 ,
+			  	  0.0  , 0.0  , 1.0  , 0.0 ,
+			  	  xLoc , yLoc , zLoc , 1.0     );
+
+	mat4 tsr = translation * scale * rotate;
+	vec4 tsrVert =  tsr * vec4(vert, 1.0);
+
+	float zDivide = 1.0 + tsrVert.z * psvFactor;
+	vec4 ptsrVert = vec4( tsrVert.xy / zDivide, tsrVert.zw);
+
+	gl_Position =  ptsrVert;
+	vcolour = colour;
+}
+</script><script id="fs2_vcolours" type="x-shader/x-fragment">
+precision mediump float;
+varying vec3 vcolour;
+void main(void){
+	gl_FragColor = vec4(vcolour , 1.0);
+}
+</script>
+
+
+<script id="vs3_verts_cubeFacesMap_tsr_p" type="x-shader/x-fragment">
+attribute vec3 vert; 
+
+attribute vec2 cubeFacesMap;
+varying vec2 vcubeFacesMap;
+
+uniform float xAngle;
+uniform float yAngle;
+uniform float zAngle;
+uniform float xScale;
+uniform float yScale;
+uniform float zScale;
+uniform float xLoc;
+uniform float yLoc;
+uniform float zLoc;
+uniform float psvFactor;
+void main(void){
+	float zAngleRadians = radians(zAngle);
+	float cz = cos(zAngleRadians); 
+	float sz = sin(zAngleRadians); 
+
+	mat4 rotateZ = mat4( cz  ,  sz , 0.0 , 0.0 ,
+			    -sz  ,  cz , 0.0 , 0.0 ,
+			     0.0 , 0.0 , 1.0 , 0.0 ,
+			     0.0 , 0.0 , 0.0 , 1.0     );
+
+	float yAngleRadians = radians(yAngle);
+	float cy = cos(yAngleRadians); 
+	float sy = sin(yAngleRadians); 
+	mat4 rotateY = mat4( cy  , 0.0 ,-sy  , 0.0 ,
+			     0.0 , 1.0 , 0.0 , 0.0 ,
+			     sy  , 0.0 , cy  , 0.0 ,
+			     0.0 , 0.0 , 0.0 , 1.0     );
+
+	float xAngleRadians = radians(xAngle);
+	float cx = cos(xAngleRadians); 
+	float sx = sin(xAngleRadians); 
+	mat4 rotateX = mat4( 1.0 , 0.0 , 0.0 , 0.0 ,
+			     0.0 , cx  , sx  , 0.0 ,
+			     0.0 ,-sx  , cx  , 0.0 ,
+			     0.0 , 0.0 , 0.0 , 1.0     );
+
+	mat4 rotate = rotateX * rotateY * rotateZ;
+
+	mat4 scale = mat4( xScale , 0.0    , 0.0    , 0.0 ,
+			    0.0   , yScale , 0.0    , 0.0 ,
+			    0.0   , 0.0    , zScale , 0.0 ,
+			    0.0   , 0.0    , 0.0    , 1.0 	);
+
+	mat4 translation = mat4(  1.0  , 0.0  , 0.0  , 0.0 ,
+			  	  0.0  , 1.0  , 0.0  , 0.0 ,
+			  	  0.0  , 0.0  , 1.0  , 0.0 ,
+			  	  xLoc , yLoc , zLoc , 1.0     );
+
+	mat4 tsr = translation * scale * rotate;
+	vec4 tsrVert =  tsr * vec4(vert, 1.0);
+
+	float zDivide = 1.0 + tsrVert.z * psvFactor;
+	vec4 ptsrVert = vec4( tsrVert.xy / zDivide, tsrVert.zw);
+
+	gl_Position =  ptsrVert;
+	vcubeFacesMap = cubeFacesMap;
+}
+</script><script id="fs3_vcubeFaces" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D img; // automatically uses the image data loaded 
+varying vec2 vcubeFacesMap;
+void main(void){
+	gl_FragColor = texture2D( img, vcubeFacesMap );
+}
+</script>
+
+
+
+<script src="./a00print3D.js"></script>
+<script src="./b01canvasWebGL.js"></script>
+<script src="./b02data.js"></script>
+
+<script src="./c01mouseClickDrag.js"></script>
+
+<script src="./d01genVertsByIndices.js"></script>
+<script src="./d02genThriceColoursArray.js"></script>
+<script src="./d03genTriStripIndices.js"></script>
+<script src="./d04genTriFanIndices.js"></script>
+
+<script src="./e01convert2Dto3D.js"></script>
+
+
+<script src="./g01backgroundViewport.js"></script>	
+<script src="./g02imageTexture.js"></script>	
+<script src="./g04dataEntry.js"></script>	
+<script src="./g05drawFrame.js"></script>	
+</body>
+</html>

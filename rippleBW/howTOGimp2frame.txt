@@ -1,0 +1,6 @@
+
+first export as
+.gif extension
+-then use imagemagik
+$convert -coalesce my.gif out%05d.png
+
